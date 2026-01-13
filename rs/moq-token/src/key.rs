@@ -1,12 +1,12 @@
 use crate::generate::generate;
 use crate::{Algorithm, Claims};
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use base64::Engine;
-use elliptic_curve::pkcs8::EncodePrivateKey;
 use elliptic_curve::SecretKey;
+use elliptic_curve::pkcs8::EncodePrivateKey;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header};
-use rsa::pkcs1::EncodeRsaPrivateKey;
 use rsa::BigUint;
+use rsa::pkcs1::EncodeRsaPrivateKey;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::sync::OnceLock;
 use std::{collections::HashSet, fmt, path::Path as StdPath};
@@ -178,10 +178,10 @@ impl<'de> Deserialize<'de> for Key {
 		// Normally the "kty" parameter is required in a JWK: https://datatracker.ietf.org/doc/html/rfc7517#section-4.1
 		// But for backwards compatibility we need to default to "oct" because in a previous
 		// implementation the parameter was omitted, and we want to keep previously generated tokens valid
-		if let Some(obj) = value.as_object_mut() {
-			if !obj.contains_key("kty") {
-				obj.insert("kty".to_string(), serde_json::Value::String("oct".to_string()));
-			}
+		if let Some(obj) = value.as_object_mut()
+			&& !obj.contains_key("kty")
+		{
+			obj.insert("kty".to_string(), serde_json::Value::String("oct".to_string()));
 		}
 
 		Self::deserialize(value).map_err(serde::de::Error::custom)
@@ -630,10 +630,12 @@ mod tests {
 
 		let result = key.encode(&invalid_claims);
 		assert!(result.is_err());
-		assert!(result
-			.unwrap_err()
-			.to_string()
-			.contains("no publish or subscribe allowed; token is useless"));
+		assert!(
+			result
+				.unwrap_err()
+				.to_string()
+				.contains("no publish or subscribe allowed; token is useless")
+		);
 	}
 
 	#[test]
@@ -656,10 +658,12 @@ mod tests {
 
 		let result = key.decode("some.jwt.token");
 		assert!(result.is_err());
-		assert!(result
-			.unwrap_err()
-			.to_string()
-			.contains("key does not support verification"));
+		assert!(
+			result
+				.unwrap_err()
+				.to_string()
+				.contains("key does not support verification")
+		);
 	}
 
 	#[test]
