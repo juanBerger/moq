@@ -2,7 +2,6 @@ import type * as Moq from "@moq/lite";
 import { Time } from "@moq/lite";
 import { Effect, type Getter, Signal } from "@moq/signals";
 import * as Catalog from "../../catalog";
-import { u53 } from "../../catalog/integers";
 import * as Container from "../../container";
 import * as libav from "../../util/libav";
 import type * as Capture from "./capture";
@@ -38,7 +37,6 @@ export class Encoder {
 	muted: Signal<boolean>;
 	volume: Signal<number>;
 	maxLatency: Time.Milli;
-	#container: Catalog.Container;
 
 	source: Signal<Source | undefined>;
 
@@ -63,7 +61,6 @@ export class Encoder {
 		this.muted = Signal.from(props?.muted ?? false);
 		this.volume = Signal.from(props?.volume ?? 1);
 		this.maxLatency = props?.maxLatency ?? (100 as Time.Milli); // Default is a group every 100ms
-		this.#container = props?.container ?? { kind: "legacy" };
 
 		this.#signals.effect(this.#runSource.bind(this));
 		this.#signals.effect(this.#runConfig.bind(this));
@@ -117,18 +114,16 @@ export class Encoder {
 	}
 
 	#runConfig(effect: Effect): void {
-		const source = effect.get(this.source);
-		if (!source) return;
-
-		const worklet = effect.get(this.#worklet);
-		if (!worklet) return;
+		const values = effect.getAll([this.source, this.#worklet]);
+		if (!values) return;
+		const [_source, worklet] = values;
 
 		const config = {
 			codec: "opus",
-			sampleRate: u53(worklet.context.sampleRate),
-			numberOfChannels: u53(worklet.channelCount),
-			bitrate: u53(worklet.channelCount * 32_000),
-			container: this.#container,
+			sampleRate: Catalog.u53(worklet.context.sampleRate),
+			numberOfChannels: Catalog.u53(worklet.channelCount),
+			bitrate: Catalog.u53(worklet.channelCount * 32_000),
+			container: { kind: "legacy" } as const,
 		};
 
 		effect.set(this.#config, config);

@@ -1,13 +1,6 @@
 import type * as Moq from "@moq/lite";
 import { Effect, type Getter, Signal } from "@moq/signals";
 import * as Catalog from "../catalog";
-import * as Audio from "./audio";
-import { Chat, type ChatProps } from "./chat";
-import * as Location from "./location";
-import { Preview, type PreviewProps } from "./preview";
-import { Sync, type SyncProps } from "./sync";
-import * as User from "./user";
-import * as Video from "./video";
 
 export interface BroadcastProps {
 	connection?: Moq.Connection.Established | Signal<Moq.Connection.Established | undefined>;
@@ -21,17 +14,9 @@ export interface BroadcastProps {
 
 	// You can disable reloading if you don't want to wait for an announcement.
 	reload?: boolean | Signal<boolean>;
-
-	video?: Video.SourceProps;
-	audio?: Audio.SourceProps;
-	location?: Location.Props;
-	chat?: ChatProps;
-	preview?: PreviewProps;
-	user?: User.Props;
-	sync?: SyncProps;
 }
 
-// A broadcast that (optionally) reloads automatically when live/offline.
+// A catalog source that (optionally) reloads automatically when live/offline.
 export class Broadcast {
 	connection: Signal<Moq.Connection.Established | undefined>;
 
@@ -40,22 +25,14 @@ export class Broadcast {
 	status = new Signal<"offline" | "loading" | "live">("offline");
 	reload: Signal<boolean>;
 
-	audio: Audio.Source;
-	video: Video.Source;
-	location: Location.Root;
-	chat: Chat;
-	preview: Preview;
-	user: User.Info;
-	sync: Sync;
-
-	#broadcast = new Signal<Moq.Broadcast | undefined>(undefined);
+	#active = new Signal<Moq.Broadcast | undefined>(undefined);
+	readonly active: Getter<Moq.Broadcast | undefined> = this.#active;
 
 	#catalog = new Signal<Catalog.Root | undefined>(undefined);
 	readonly catalog: Getter<Catalog.Root | undefined> = this.#catalog;
 
 	// This signal is true when the broadcast has been announced, unless reloading is disabled.
-	#active = new Signal(false);
-	readonly active: Getter<boolean> = this.#active;
+	#announced = new Signal(false);
 
 	signals = new Effect();
 
@@ -64,13 +41,6 @@ export class Broadcast {
 		this.path = Signal.from(props?.path);
 		this.enabled = Signal.from(props?.enabled ?? false);
 		this.reload = Signal.from(props?.reload ?? true);
-		this.sync = new Sync(props?.sync);
-		this.audio = new Audio.Source(this.#broadcast, this.#catalog, this.sync, props?.audio);
-		this.video = new Video.Source(this.#broadcast, this.#catalog, this.sync, props?.video);
-		this.location = new Location.Root(this.#broadcast, this.#catalog, props?.location);
-		this.chat = new Chat(this.#broadcast, this.#catalog, props?.chat);
-		this.preview = new Preview(this.#broadcast, this.#catalog, props?.preview);
-		this.user = new User.Info(this.#catalog, props?.user);
 
 		this.signals.effect(this.#runReload.bind(this));
 		this.signals.effect(this.#runBroadcast.bind(this));
@@ -84,7 +54,7 @@ export class Broadcast {
 		const reload = effect.get(this.reload);
 		if (!reload) {
 			// Mark as active without waiting for an announcement.
-			effect.set(this.#active, true, false);
+			effect.set(this.#announced, true, false);
 			return;
 		}
 
@@ -108,15 +78,15 @@ export class Broadcast {
 					continue;
 				}
 
-				effect.set(this.#active, update.active, false);
+				effect.set(this.#announced, update.active, false);
 			}
 		});
 	}
 
 	#runBroadcast(effect: Effect): void {
-		const values = effect.getAll([this.enabled, this.#active, this.connection]);
+		const values = effect.getAll([this.enabled, this.#announced, this.connection]);
 		if (!values) return;
-		const [_enabled, _active, conn] = values;
+		const [_enabled, _announced, conn] = values;
 
 		const path = effect.get(this.path);
 		if (path === undefined) return;
@@ -124,13 +94,13 @@ export class Broadcast {
 		const broadcast = conn.consume(path);
 		effect.cleanup(() => broadcast.close());
 
-		effect.set(this.#broadcast, broadcast);
+		effect.set(this.#active, broadcast);
 	}
 
 	#runCatalog(effect: Effect): void {
-		const values = effect.getAll([this.enabled, this.#broadcast]);
+		const values = effect.getAll([this.enabled, this.active]);
 		if (!values) return;
-		const [_enabled, broadcast] = values;
+		const [_, broadcast] = values;
 
 		this.status.set("loading");
 
@@ -161,13 +131,5 @@ export class Broadcast {
 
 	close() {
 		this.signals.close();
-
-		this.audio.close();
-		this.video.close();
-		this.location.close();
-		this.chat.close();
-		this.preview.close();
-		this.user.close();
-		this.sync.close();
 	}
 }

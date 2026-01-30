@@ -64,8 +64,6 @@ The fastest way to add MoQ to your web page. See [Web Components](/typescript/we
 </hang-watch>
 ```
 
-[Learn more about Web Components →](/typescript/web-components)
-
 ## JavaScript API
 
 For advanced use cases:
