@@ -23,6 +23,7 @@ export interface Getter<T> {
 
 export interface Setter<T> {
 	set(value: T | ((prev: T) => T)): void;
+	update(fn: (prev: T) => T): void;
 }
 
 export class Signal<T> implements Getter<T>, Setter<T> {
@@ -66,7 +67,14 @@ export class Signal<T> implements Getter<T>, Setter<T> {
 
 		// Don't even queue a microtask if the value is the EXACT same.
 		// We don't use dequal here because we don't want to run it twice, only when it matters.
-		if (notify === undefined && old === this.#value) return;
+		if (notify === undefined && old === this.#value) {
+			if (DEV && value !== null && (typeof value === "object" || typeof value === "function")) {
+				console.warn(
+					"Signal.set() called with the same object reference. Changes won't propagate. Use update() or mutate() instead.",
+				);
+			}
+			return;
+		}
 
 		// If there are no subscribers, don't queue a microtask.
 		if (this.#subscribers.size === 0 && this.#changed.size === 0) return;
@@ -574,6 +582,6 @@ export class Effect {
 	}
 
 	proxy<T>(dst: Setter<T>, src: Getter<T>): void {
-		this.subscribe(src, (value) => dst.set(value));
+		this.subscribe(src, (value) => dst.update(() => value));
 	}
 }
