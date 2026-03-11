@@ -20,7 +20,7 @@ use super::{Group, GroupConsumer, GroupProducer};
 
 use std::{collections::VecDeque, future::Future};
 
-const MAX_CACHE: std::time::Duration = std::time::Duration::from_secs(30);
+const MAX_CACHE: std::time::Duration = std::time::Duration::from_millis(300);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

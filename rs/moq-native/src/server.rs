@@ -110,7 +110,7 @@ impl Server {
 		let mut transport = quinn::TransportConfig::default();
 		transport.max_idle_timeout(Some(Duration::from_secs(10).try_into().unwrap()));
 		transport.keep_alive_interval(Some(Duration::from_secs(4)));
-		//transport.congestion_controller_factory(Arc::new(quinn::congestion::BbrConfig::default()));
+		transport.congestion_controller_factory(Arc::new(quinn::congestion::BbrConfig::default()));
 		transport.mtu_discovery_config(None); // Disable MTU discovery
 		let transport = Arc::new(transport);
 
